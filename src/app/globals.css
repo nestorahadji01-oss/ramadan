@@ -247,6 +247,11 @@ body {
   color: var(--muted-foreground);
 }
 
+/* Input with icon on the left */
+.input-with-icon {
+  padding-left: 2.75rem;
+}
+
 /* ===== Mobile Navigation ===== */
 .mobile-nav {
   position: fixed;

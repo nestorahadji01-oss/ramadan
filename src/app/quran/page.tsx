@@ -57,13 +57,13 @@ export default function QuranPage() {
                 <div className="p-4 space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Rechercher une sourate..."
-                            className="input pl-12"
+                            className="input input-with-icon"
                         />
                     </div>
 
