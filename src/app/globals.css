@@ -1,26 +1,445 @@
+/* Google Fonts - Amiri for Arabic, Outfit for Latin */
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
+/* ========================================
+   🌙 RAMADAN COMPANION - ISLAMIC DESIGN SYSTEM
+   ======================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ===== Primary Colors - Islamic Palette ===== */
+  --emerald-950: #022c22;
+  --emerald-900: #064e3b;
+  --emerald-800: #065f46;
+  --emerald-700: #047857;
+  --emerald-600: #059669;
+  --emerald-500: #10b981;
+
+  /* ===== Gold Accents ===== */
+  --gold-600: #b8860b;
+  --gold-500: #d4a853;
+  --gold-400: #e5b864;
+  --gold-300: #f0c878;
+
+  /* ===== Warm Neutrals ===== */
+  --cream: #faf6f0;
+  --sand-100: #f5efe6;
+  --sand-200: #ebe3d6;
+  --sand-300: #ddd4c4;
+
+  /* ===== Dark Theme ===== */
+  --night-950: #0a0f0d;
+  --night-900: #111916;
+  --night-800: #1a2420;
+  --night-700: #243029;
+
+  /* ===== Functional Colors ===== */
+  --prayer-fajr: #6366f1;
+  --prayer-dhuhr: #f59e0b;
+  --prayer-asr: #f97316;
+  --prayer-maghrib: #ec4899;
+  --prayer-isha: #8b5cf6;
+
+  /* ===== Light Theme Variables ===== */
+  --background: var(--cream);
+  --foreground: var(--emerald-950);
+  --card-bg: #ffffff;
+  --card-border: var(--sand-200);
+  --muted: var(--sand-300);
+  --muted-foreground: #6b7280;
+  --primary: var(--emerald-700);
+  --primary-foreground: #ffffff;
+  --accent: var(--gold-500);
+  --accent-foreground: var(--emerald-950);
 }
 
+/* Dark Theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--night-950);
+    --foreground: var(--cream);
+    --card-bg: var(--night-900);
+    --card-border: var(--night-700);
+    --muted: var(--night-800);
+    --muted-foreground: #9ca3af;
+    --primary: var(--emerald-500);
+    --primary-foreground: var(--night-950);
+    --accent: var(--gold-400);
+    --accent-foreground: var(--night-950);
+  }
+}
+
+/* Manual dark mode class */
+.dark {
+  --background: var(--night-950);
+  --foreground: var(--cream);
+  --card-bg: var(--night-900);
+  --card-border: var(--night-700);
+  --muted: var(--night-800);
+  --muted-foreground: #9ca3af;
+  --primary: var(--emerald-500);
+  --primary-foreground: var(--night-950);
+  --accent: var(--gold-400);
+  --accent-foreground: var(--night-950);
+}
+
+/* ===== Tailwind Theme Integration ===== */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Islamic palette */
+  --color-emerald-950: var(--emerald-950);
+  --color-emerald-800: var(--emerald-800);
+  --color-emerald-700: var(--emerald-700);
+  --color-emerald-600: var(--emerald-600);
+  --color-gold-500: var(--gold-500);
+  --color-gold-400: var(--gold-400);
+  --color-cream: var(--cream);
+  --color-sand: var(--sand-100);
+
+  /* Prayer colors */
+  --color-prayer-fajr: var(--prayer-fajr);
+  --color-prayer-dhuhr: var(--prayer-dhuhr);
+  --color-prayer-asr: var(--prayer-asr);
+  --color-prayer-maghrib: var(--prayer-maghrib);
+  --color-prayer-isha: var(--prayer-isha);
+
+  /* Fonts */
+  --font-sans: 'Outfit', system-ui, sans-serif;
+  --font-arabic: 'Amiri', serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ===== Base Styles ===== */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
+  line-height: 1.6;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Arabic Text */
+.font-arabic {
+  font-family: 'Amiri', serif;
+  direction: rtl;
+  line-height: 2;
+}
+
+/* ===== Islamic Geometric Pattern Background ===== */
+.pattern-islamic {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23065f46' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.pattern-islamic-dark {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ===== Card Styles ===== */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.card-gold {
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+  border: none;
+  color: var(--emerald-950);
+}
+
+/* ===== Button Styles ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-400));
+  color: var(--emerald-950);
+  font-weight: 600;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.btn-ghost:hover {
+  background: var(--muted);
+}
+
+/* Large touch-friendly buttons (mobile) */
+.btn-touch {
+  min-height: 56px;
+  min-width: 56px;
+  padding: 1rem 1.5rem;
+}
+
+/* ===== Input Styles ===== */
+.input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--foreground);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.input::placeholder {
+  color: var(--muted-foreground);
+}
+
+/* ===== Mobile Navigation ===== */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--card-border);
+  padding: 0.5rem 0;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  z-index: 50;
+  backdrop-filter: blur(20px);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: color 0.2s ease;
+}
+
+.nav-item.active {
+  color: var(--primary);
+}
+
+.nav-item svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ===== Prayer Time Card ===== */
+.prayer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.prayer-card.active {
+  background: linear-gradient(135deg, var(--emerald-700), var(--emerald-600));
+  border-color: transparent;
+  color: white;
+}
+
+.prayer-card.next {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 1px var(--gold-500);
+}
+
+/* ===== Tasbih Counter Button ===== */
+.tasbih-btn {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--emerald-600), var(--emerald-800));
+  border: 4px solid var(--gold-500);
+  color: white;
+  font-size: 4rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 0 10px 40px rgba(5, 150, 105, 0.3);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tasbih-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 5px 20px rgba(5, 150, 105, 0.4);
+}
+
+/* ===== Safe Area Padding (for mobile notch/home indicator) ===== */
+.safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, calc(80px + env(safe-area-inset-bottom)));
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-gold {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(212, 168, 83, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(212, 168, 83, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 2s infinite;
+}
+
+/* Staggered children animation */
+.stagger-children>* {
+  opacity: 0;
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger-children>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger-children>*:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* ===== Utility Classes ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--gold-500), var(--gold-300));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hide scrollbar but allow scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
