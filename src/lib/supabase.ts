@@ -7,9 +7,17 @@ export interface ActivationCode {
   order_id: string;
   customer_name: string | null;
   customer_email: string | null;
+  device_id: string | null;
   used: boolean;
   used_at: string | null;
   created_at: string;
+}
+
+export interface UserProfile {
+  phone: string;
+  name: string | null;
+  firstName: string | null;
+  email: string | null;
 }
 
 export interface EBook {
@@ -37,12 +45,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // ========================================
 
 /**
- * Verify if a phone number has a valid, unused activation code
+ * Verify if a phone number has a valid activation code
+ * Checks if the device_id matches or if no device is registered yet
  */
-export async function verifyActivationCode(phone: string): Promise<{
+export async function verifyActivationCode(phone: string, deviceId?: string): Promise<{
   valid: boolean;
   error?: string;
   code?: ActivationCode;
+  profile?: UserProfile;
 }> {
   try {
     // Normalize phone number (remove spaces, ensure proper format)
@@ -58,11 +68,34 @@ export async function verifyActivationCode(phone: string): Promise<{
       return { valid: false, error: 'Code d\'activation introuvable pour ce numéro.' };
     }
 
-    if (data.used) {
-      return { valid: false, error: 'Ce code a déjà été utilisé.' };
+    // Check if already used on a different device
+    if (data.used && data.device_id && deviceId && data.device_id !== deviceId) {
+      return {
+        valid: false,
+        error: 'Ce numéro est déjà activé sur un autre appareil.'
+      };
     }
 
-    return { valid: true, code: data };
+    // If already used on same device, allow re-login
+    if (data.used && data.device_id === deviceId) {
+      const profile: UserProfile = {
+        phone: data.phone,
+        name: data.customer_name,
+        firstName: data.customer_name?.split(' ')[0] || null,
+        email: data.customer_email,
+      };
+      return { valid: true, code: data, profile };
+    }
+
+    // New activation
+    const profile: UserProfile = {
+      phone: data.phone,
+      name: data.customer_name,
+      firstName: data.customer_name?.split(' ')[0] || null,
+      email: data.customer_email,
+    };
+
+    return { valid: true, code: data, profile };
   } catch (err) {
     console.error('Verification error:', err);
     return { valid: false, error: 'Erreur de vérification. Veuillez réessayer.' };
@@ -70,29 +103,68 @@ export async function verifyActivationCode(phone: string): Promise<{
 }
 
 /**
- * Mark an activation code as used
+ * Activate a code and register the device
  */
-export async function activateCode(phone: string): Promise<{
+export async function activateCode(phone: string, deviceId: string): Promise<{
   success: boolean;
   error?: string;
+  profile?: UserProfile;
 }> {
   try {
     const normalizedPhone = normalizePhoneNumber(phone);
 
+    // First get the current data
+    const { data: currentData, error: fetchError } = await supabase
+      .from('activation_codes')
+      .select('*')
+      .eq('phone', normalizedPhone)
+      .single();
+
+    if (fetchError || !currentData) {
+      return { success: false, error: 'Code introuvable.' };
+    }
+
+    // Check if already activated on a different device
+    if (currentData.used && currentData.device_id && currentData.device_id !== deviceId) {
+      return {
+        success: false,
+        error: 'Ce numéro est déjà activé sur un autre appareil.'
+      };
+    }
+
+    // If already activated on same device, just return success with profile
+    if (currentData.used && currentData.device_id === deviceId) {
+      const profile: UserProfile = {
+        phone: currentData.phone,
+        name: currentData.customer_name,
+        firstName: currentData.customer_name?.split(' ')[0] || null,
+        email: currentData.customer_email,
+      };
+      return { success: true, profile };
+    }
+
+    // Activate and register device
     const { error } = await supabase
       .from('activation_codes')
       .update({
         used: true,
-        used_at: new Date().toISOString()
+        used_at: new Date().toISOString(),
+        device_id: deviceId,
       })
-      .eq('phone', normalizedPhone)
-      .eq('used', false);
+      .eq('phone', normalizedPhone);
 
     if (error) {
       return { success: false, error: 'Erreur lors de l\'activation.' };
     }
 
-    return { success: true };
+    const profile: UserProfile = {
+      phone: currentData.phone,
+      name: currentData.customer_name,
+      firstName: currentData.customer_name?.split(' ')[0] || null,
+      email: currentData.customer_email,
+    };
+
+    return { success: true, profile };
   } catch (err) {
     console.error('Activation error:', err);
     return { success: false, error: 'Erreur d\'activation. Veuillez réessayer.' };
@@ -129,6 +201,7 @@ export async function createActivationCode(data: {
         order_id: data.order_id,
         customer_name: data.customer_name || null,
         customer_email: data.customer_email || null,
+        device_id: null,
         used: false,
       });
 
@@ -141,6 +214,64 @@ export async function createActivationCode(data: {
   } catch (err) {
     console.error('Create activation code error:', err);
     return { success: false, error: 'Failed to create activation code' };
+  }
+}
+
+/**
+ * Transfer activation to a new device (admin function)
+ */
+export async function transferActivation(phone: string, newDeviceId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    const { error } = await supabase
+      .from('activation_codes')
+      .update({
+        device_id: newDeviceId,
+        used_at: new Date().toISOString(),
+      })
+      .eq('phone', normalizedPhone);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Transfer activation error:', err);
+    return { success: false, error: 'Erreur lors du transfert.' };
+  }
+}
+
+/**
+ * Get user profile by phone
+ */
+export async function getUserProfile(phone: string): Promise<UserProfile | null> {
+  try {
+    const normalizedPhone = normalizePhoneNumber(phone);
+
+    const { data, error } = await supabase
+      .from('activation_codes')
+      .select('phone, customer_name, customer_email')
+      .eq('phone', normalizedPhone)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return {
+      phone: data.phone,
+      name: data.customer_name,
+      firstName: data.customer_name?.split(' ')[0] || null,
+      email: data.customer_email,
+    };
+  } catch (err) {
+    console.error('Get profile error:', err);
+    return null;
   }
 }
 
@@ -219,4 +350,13 @@ function normalizePhoneNumber(phone: string): string {
   }
 
   return normalized;
+}
+
+/**
+ * Generate a unique device ID
+ */
+export function generateDeviceId(): string {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  return `device_${timestamp}_${randomPart}`;
 }

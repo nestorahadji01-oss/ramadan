@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyActivationCode, activateCode } from '@/lib/supabase';
+import { verifyActivationCode, activateCode, type UserProfile } from '@/lib/supabase';
 
 /**
  * Activation API Endpoint
  * 
- * POST: Verify and activate using phone number
+ * POST: Verify and activate using phone number + device_id
  * GET: Check activation status
  */
 
 export async function POST(request: NextRequest) {
     try {
-        const { phone } = await request.json();
+        const { phone, deviceId } = await request.json();
 
         if (!phone) {
             return NextResponse.json(
@@ -19,8 +19,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (!deviceId) {
+            return NextResponse.json(
+                { success: false, error: 'Device ID requis' },
+                { status: 400 }
+            );
+        }
+
         // Verify the phone number has a valid code
-        const verification = await verifyActivationCode(phone);
+        const verification = await verifyActivationCode(phone, deviceId);
 
         if (!verification.valid) {
             return NextResponse.json(
@@ -29,8 +36,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Activate the code
-        const activation = await activateCode(phone);
+        // Activate the code with device binding
+        const activation = await activateCode(phone, deviceId);
 
         if (!activation.success) {
             return NextResponse.json(
@@ -44,7 +51,9 @@ export async function POST(request: NextRequest) {
             message: 'Application activée avec succès!',
             data: {
                 phone,
+                deviceId,
                 activatedAt: new Date().toISOString(),
+                profile: activation.profile,
             },
         });
 
@@ -60,6 +69,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const phone = searchParams.get('phone');
+    const deviceId = searchParams.get('deviceId');
 
     if (!phone) {
         return NextResponse.json(
@@ -68,10 +78,11 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    const verification = await verifyActivationCode(phone);
+    const verification = await verifyActivationCode(phone, deviceId || undefined);
 
     return NextResponse.json({
         valid: verification.valid,
         error: verification.error,
+        profile: verification.profile,
     });
 }

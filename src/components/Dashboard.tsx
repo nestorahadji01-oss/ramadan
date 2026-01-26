@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getPrayerTimesByCity, type PrayerTimesResponse } from '@/lib/api/islamic';
 import { getTimeUntil, formatCountdown, storage, STORAGE_KEYS } from '@/lib/utils';
+import { useActivation } from '@/contexts/ActivationContext';
 
 interface LocationData {
     city: string;
@@ -50,6 +51,7 @@ const prayerNames: Record<string, string> = {
 };
 
 export default function Dashboard() {
+    const { userProfile } = useActivation();
     const [prayerData, setPrayerData] = useState<PrayerTimesResponse | null>(null);
     const [nextPrayer, setNextPrayer] = useState<{ name: string; time: string; countdown: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -147,7 +149,11 @@ export default function Dashboard() {
                             <Sparkles className="w-5 h-5" />
                             <span className="text-sm font-medium opacity-80">رمضان مبارك</span>
                         </div>
-                        <h2 className="text-2xl font-bold mb-1">Ramadan Moubarak!</h2>
+                        <h2 className="text-2xl font-bold mb-1">
+                            {userProfile?.firstName
+                                ? `Salut ${userProfile.firstName}!`
+                                : 'Ramadan Moubarak!'}
+                        </h2>
                         <p className="text-sm opacity-80">
                             Que ce mois béni soit rempli de paix et de bénédictions.
                         </p>
