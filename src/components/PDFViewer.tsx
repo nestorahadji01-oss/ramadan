@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 
 // Configure PDF.js worker
@@ -23,25 +23,34 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
     const [containerWidth, setContainerWidth] = useState(0);
     const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(null);
     const [showBookmarkToast, setShowBookmarkToast] = useState(false);
-    const [isSpeaking, setIsSpeaking] = useState(false);
-    const [pdfText, setPdfText] = useState<string[]>([]);
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const pagesRef = useRef<HTMLDivElement>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     // Load bookmark from localStorage
     useEffect(() => {
         const saved = localStorage.getItem(`bookmark_${bookId}`);
         if (saved) {
-            setBookmarkedPage(parseInt(saved));
+            const page = parseInt(saved);
+            setBookmarkedPage(page);
+            // Auto-scroll to bookmark after load
+            setTimeout(() => {
+                if (scrollRef.current && page > 1) {
+                    const pages = scrollRef.current.querySelectorAll('.pdf-page-container');
+                    if (pages[page - 1]) {
+                        pages[page - 1].scrollIntoView({ behavior: 'auto' });
+                    }
+                }
+            }, 1000);
         }
-    }, [bookId]);
+    }, [bookId, numPages]);
 
     // Measure container width for full-width pages
     useEffect(() => {
         const updateWidth = () => {
             if (containerRef.current) {
-                setContainerWidth(containerRef.current.clientWidth - 32); // padding
+                // Full width minus small padding
+                setContainerWidth(containerRef.current.clientWidth - 16);
             }
         };
         updateWidth();
@@ -51,18 +60,18 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
 
     // Track current page on scroll
     useEffect(() => {
-        const container = pagesRef.current;
+        const container = scrollRef.current;
         if (!container || numPages === 0) return;
 
         const handleScroll = () => {
-            const pages = container.querySelectorAll('.pdf-page');
+            const pages = container.querySelectorAll('.pdf-page-container');
+            const containerRect = container.getBoundingClientRect();
             let visiblePage = 1;
 
             pages.forEach((page, index) => {
                 const rect = page.getBoundingClientRect();
-                const containerRect = container.getBoundingClientRect();
-
-                if (rect.top < containerRect.top + containerRect.height / 2) {
+                // Page is considered "current" when its top is near the top of the viewport
+                if (rect.top < containerRect.top + 150) {
                     visiblePage = index + 1;
                 }
             });
@@ -70,11 +79,11 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
             setCurrentPage(visiblePage);
         };
 
-        container.addEventListener('scroll', handleScroll);
+        container.addEventListener('scroll', handleScroll, { passive: true });
         return () => container.removeEventListener('scroll', handleScroll);
     }, [numPages]);
 
-    const onDocumentLoadSuccess = async ({ numPages }: { numPages: number }) => {
+    const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
         setNumPages(numPages);
         setLoading(false);
     };
@@ -89,199 +98,150 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         if (bookmarkedPage === currentPage) {
             localStorage.removeItem(`bookmark_${bookId}`);
             setBookmarkedPage(null);
-            setShowBookmarkToast(true);
-            setTimeout(() => setShowBookmarkToast(false), 2000);
         } else {
             localStorage.setItem(`bookmark_${bookId}`, currentPage.toString());
             setBookmarkedPage(currentPage);
-            setShowBookmarkToast(true);
-            setTimeout(() => setShowBookmarkToast(false), 2000);
         }
+        setShowBookmarkToast(true);
+        setTimeout(() => setShowBookmarkToast(false), 1500);
     };
 
     // Go to bookmark
     const goToBookmark = () => {
-        if (bookmarkedPage && pagesRef.current) {
-            const pages = pagesRef.current.querySelectorAll('.pdf-page');
+        if (bookmarkedPage && scrollRef.current) {
+            const pages = scrollRef.current.querySelectorAll('.pdf-page-container');
             if (pages[bookmarkedPage - 1]) {
                 pages[bookmarkedPage - 1].scrollIntoView({ behavior: 'smooth' });
             }
         }
     };
 
-    // Text-to-Speech using Web Speech API
-    const toggleSpeech = useCallback(() => {
-        if (isSpeaking) {
-            window.speechSynthesis.cancel();
-            setIsSpeaking(false);
-        } else {
-            // Get text from current visible page
-            if (pagesRef.current) {
-                const pages = pagesRef.current.querySelectorAll('.pdf-page');
-                const currentPageEl = pages[currentPage - 1];
-                if (currentPageEl) {
-                    const text = currentPageEl.textContent || '';
-                    if (text.trim()) {
-                        const utterance = new SpeechSynthesisUtterance(text);
-                        utterance.lang = 'ar-SA'; // Arabic
-                        utterance.rate = 0.9;
-                        utterance.onend = () => setIsSpeaking(false);
-                        utterance.onerror = () => setIsSpeaking(false);
-                        window.speechSynthesis.speak(utterance);
-                        setIsSpeaking(true);
-                    }
-                }
-            }
-        }
-    }, [isSpeaking, currentPage]);
-
-    // Stop speech on unmount
-    useEffect(() => {
-        return () => {
-            window.speechSynthesis.cancel();
-        };
-    }, []);
-
     return (
-        <div className="fixed inset-0 bg-background z-50 flex flex-col">
+        <div className="fixed inset-0 bg-black z-50 flex flex-col">
             {/* Header */}
-            <div className="bg-card border-b border-card-border px-4 py-3 flex items-center justify-between safe-top">
-                <button onClick={onClose} className="p-2 -ml-2 text-muted-foreground">
+            <div className="bg-black/90 backdrop-blur px-4 py-3 flex items-center justify-between safe-top border-b border-white/10">
+                <button
+                    onClick={onClose}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white"
+                >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
-                <div className="flex-1 text-center">
-                    <h1 className="text-sm font-semibold text-foreground truncate px-2">
+
+                <div className="flex-1 text-center px-3">
+                    <h1 className="text-sm font-medium text-white truncate">
                         {title}
                     </h1>
                     {numPages > 0 && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-white/60">
                             {currentPage} / {numPages}
                         </p>
                     )}
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center gap-1">
-                    {/* Audio Button */}
-                    <button
-                        onClick={toggleSpeech}
-                        className={`p-2 rounded-lg transition-colors ${isSpeaking ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
-                        title={isSpeaking ? 'Arrêter la lecture' : 'Lire à voix haute'}
+                {/* Bookmark Button */}
+                <button
+                    onClick={toggleBookmark}
+                    className={`w-10 h-10 flex items-center justify-center rounded-full ${bookmarkedPage === currentPage ? 'bg-primary text-white' : 'bg-white/10 text-white'
+                        }`}
+                >
+                    <svg
+                        className="w-5 h-5"
+                        fill={bookmarkedPage === currentPage ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                     >
-                        {isSpeaking ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                            </svg>
-                        )}
-                    </button>
-
-                    {/* Bookmark Button */}
-                    <button
-                        onClick={toggleBookmark}
-                        className={`p-2 rounded-lg transition-colors ${bookmarkedPage === currentPage ? 'text-primary' : 'text-muted-foreground'}`}
-                        title={bookmarkedPage === currentPage ? 'Retirer le marque-page' : 'Marquer cette page'}
-                    >
-                        <svg className="w-5 h-5" fill={bookmarkedPage === currentPage ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                        </svg>
-                    </button>
-                </div>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                </button>
             </div>
 
-            {/* Bookmark indicator */}
+            {/* Bookmark jump button */}
             {bookmarkedPage && bookmarkedPage !== currentPage && (
                 <button
                     onClick={goToBookmark}
-                    className="absolute top-16 right-4 z-10 bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"
+                    className="absolute top-20 left-1/2 -translate-x-1/2 z-10 bg-primary text-white text-xs px-4 py-2 rounded-full shadow-lg flex items-center gap-2"
                 >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                     </svg>
-                    Page {bookmarkedPage}
+                    Aller à la page {bookmarkedPage}
                 </button>
             )}
 
             {/* Toast */}
             {showBookmarkToast && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-card border border-card-border text-sm px-4 py-2 rounded-lg shadow-lg">
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 z-20 bg-white text-black text-sm px-4 py-2 rounded-full shadow-lg font-medium">
                     {bookmarkedPage === currentPage ? '📖 Marque-page ajouté' : '📖 Marque-page retiré'}
                 </div>
             )}
 
-            {/* PDF Viewer - Scroll Mode */}
-            <div
-                ref={containerRef}
-                className="flex-1 overflow-hidden bg-muted/30"
-            >
+            {/* PDF Viewer */}
+            <div ref={containerRef} className="flex-1 overflow-hidden bg-neutral-900">
                 {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black">
+                        <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
                     </div>
                 )}
 
                 {error ? (
                     <div className="flex flex-col items-center justify-center h-full py-8">
-                        <p className="text-muted-foreground text-sm mb-4">Erreur de chargement du PDF</p>
+                        <p className="text-white/70 text-sm mb-4">Impossible de charger le PDF</p>
                         <a
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
+                            className="px-5 py-2.5 bg-primary text-white rounded-full text-sm font-medium"
                         >
                             Ouvrir dans le navigateur
                         </a>
                     </div>
                 ) : (
                     <div
-                        ref={pagesRef}
-                        className="h-full overflow-auto scroll-smooth"
-                        style={{ scrollSnapType: 'y proximity' }}
+                        ref={scrollRef}
+                        className="h-full overflow-auto"
                     >
                         <Document
                             file={url}
                             onLoadSuccess={onDocumentLoadSuccess}
                             onLoadError={onDocumentLoadError}
                             loading={null}
+                            className="flex flex-col items-center"
                         >
                             {Array.from(new Array(numPages), (_, index) => (
                                 <div
                                     key={`page_${index + 1}`}
-                                    className="pdf-page flex justify-center py-2"
-                                    style={{ scrollSnapAlign: 'start' }}
+                                    className="pdf-page-container w-full flex justify-center py-1 bg-neutral-900"
                                 >
                                     <Page
                                         pageNumber={index + 1}
                                         width={containerWidth}
-                                        className="shadow-lg"
-                                        renderTextLayer={true}
+                                        renderTextLayer={false}
                                         renderAnnotationLayer={false}
+                                        className="shadow-2xl"
                                     />
                                 </div>
                             ))}
+                            {/* Bottom padding for safe area */}
+                            <div className="h-20" />
                         </Document>
                     </div>
                 )}
             </div>
 
-            {/* Bottom Progress Bar */}
-            {numPages > 0 && (
-                <div className="bg-card border-t border-card-border px-4 py-2 safe-bottom">
+            {/* Progress Bar */}
+            {numPages > 0 && !loading && (
+                <div className="bg-black/90 backdrop-blur px-4 py-3 safe-bottom border-t border-white/10">
                     <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground w-8">{currentPage}</span>
-                        <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                        <span className="text-xs text-white/60 w-8 text-center">{currentPage}</span>
+                        <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
                             <div
-                                className="h-full bg-primary transition-all duration-300"
+                                className="h-full bg-primary rounded-full transition-all duration-200"
                                 style={{ width: `${(currentPage / numPages) * 100}%` }}
                             />
                         </div>
-                        <span className="text-xs text-muted-foreground w-8 text-right">{numPages}</span>
+                        <span className="text-xs text-white/60 w-8 text-center">{numPages}</span>
                     </div>
                 </div>
             )}
