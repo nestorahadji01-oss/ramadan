@@ -23,6 +23,7 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
     const [containerWidth, setContainerWidth] = useState(0);
     const [bookmarkedPage, setBookmarkedPage] = useState<number | null>(null);
     const [showBookmarkToast, setShowBookmarkToast] = useState(false);
+    const [zoom, setZoom] = useState(1); // Zoom level: 1 = fit width
 
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -33,7 +34,6 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         if (saved) {
             const page = parseInt(saved);
             setBookmarkedPage(page);
-            // Auto-scroll to bookmark after load
             setTimeout(() => {
                 if (scrollRef.current && page > 1) {
                     const pages = scrollRef.current.querySelectorAll('.pdf-page-container');
@@ -45,11 +45,10 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         }
     }, [bookId, numPages]);
 
-    // Measure container width for full-width pages
+    // Measure container width
     useEffect(() => {
         const updateWidth = () => {
             if (containerRef.current) {
-                // Full width minus small padding
                 setContainerWidth(containerRef.current.clientWidth - 16);
             }
         };
@@ -70,7 +69,6 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
 
             pages.forEach((page, index) => {
                 const rect = page.getBoundingClientRect();
-                // Page is considered "current" when its top is near the top of the viewport
                 if (rect.top < containerRect.top + 150) {
                     visiblePage = index + 1;
                 }
@@ -93,7 +91,6 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         setLoading(false);
     };
 
-    // Bookmark current page
     const toggleBookmark = () => {
         if (bookmarkedPage === currentPage) {
             localStorage.removeItem(`bookmark_${bookId}`);
@@ -106,7 +103,6 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         setTimeout(() => setShowBookmarkToast(false), 1500);
     };
 
-    // Go to bookmark
     const goToBookmark = () => {
         if (bookmarkedPage && scrollRef.current) {
             const pages = scrollRef.current.querySelectorAll('.pdf-page-container');
@@ -116,10 +112,17 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
         }
     };
 
+    // Zoom functions
+    const zoomIn = () => setZoom(prev => Math.min(2.5, prev + 0.25));
+    const zoomOut = () => setZoom(prev => Math.max(0.5, prev - 0.25));
+    const resetZoom = () => setZoom(1);
+
+    const pageWidth = containerWidth * zoom;
+
     return (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
             {/* Header */}
-            <div className="bg-black/90 backdrop-blur px-4 py-3 flex items-center justify-between safe-top border-b border-white/10">
+            <div className="bg-black/90 backdrop-blur px-3 py-3 flex items-center justify-between safe-top border-b border-white/10">
                 <button
                     onClick={onClose}
                     className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white"
@@ -129,7 +132,7 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
                     </svg>
                 </button>
 
-                <div className="flex-1 text-center px-3">
+                <div className="flex-1 text-center px-2">
                     <h1 className="text-sm font-medium text-white truncate">
                         {title}
                     </h1>
@@ -166,7 +169,7 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                     </svg>
-                    Aller à la page {bookmarkedPage}
+                    Page {bookmarkedPage}
                 </button>
             )}
 
@@ -216,23 +219,53 @@ export default function PDFViewer({ url, onClose, title, bookId }: PDFViewerProp
                                 >
                                     <Page
                                         pageNumber={index + 1}
-                                        width={containerWidth}
+                                        width={pageWidth}
                                         renderTextLayer={false}
                                         renderAnnotationLayer={false}
                                         className="shadow-2xl"
                                     />
                                 </div>
                             ))}
-                            {/* Bottom padding for safe area */}
-                            <div className="h-20" />
+                            <div className="h-24" />
                         </Document>
                     </div>
                 )}
             </div>
 
-            {/* Progress Bar */}
+            {/* Bottom Bar with Zoom + Progress */}
             {numPages > 0 && !loading && (
                 <div className="bg-black/90 backdrop-blur px-4 py-3 safe-bottom border-t border-white/10">
+                    {/* Zoom Controls */}
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                        <button
+                            onClick={zoomOut}
+                            disabled={zoom <= 0.5}
+                            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white disabled:opacity-30"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            </svg>
+                        </button>
+
+                        <button
+                            onClick={resetZoom}
+                            className="px-3 h-9 rounded-full bg-white/10 text-white text-xs font-medium min-w-[60px]"
+                        >
+                            {Math.round(zoom * 100)}%
+                        </button>
+
+                        <button
+                            onClick={zoomIn}
+                            disabled={zoom >= 2.5}
+                            className="w-9 h-9 flex items-center justify-center rounded-full bg-white/10 text-white disabled:opacity-30"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Progress Bar */}
                     <div className="flex items-center gap-3">
                         <span className="text-xs text-white/60 w-8 text-center">{currentPage}</span>
                         <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
