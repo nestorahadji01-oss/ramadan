@@ -1,0 +1,5 @@
+# Supabase CLI configuration
+# Minimal config for Edge Functions deployment
+
+[api]
+enabled = true
