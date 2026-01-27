@@ -1,83 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import AppWrapper from '@/components/AppWrapper';
 import { CompactHeader } from '@/components/layout/Header';
 import { Radio, Play, Pause, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-// Single working station - Maher Al Muaiqly
-const STATION = {
-    name: 'Maher Al Muaiqly',
-    reciter: 'ماهر المعيقلي',
-    url: 'https://qurango.net/radio/maher',
-    description: 'Récitation complète du Saint Coran',
-};
+import { useRadio } from '@/contexts/RadioContext';
 
 export default function RadioPage() {
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
-    }, []);
-
-    const togglePlay = async () => {
-        if (isPlaying) {
-            audioRef.current?.pause();
-            setIsPlaying(false);
-            return;
-        }
-
-        if (audioRef.current) {
-            audioRef.current.play().catch(console.error);
-            return;
-        }
-
-        setIsLoading(true);
-
-        const audio = new Audio();
-        audio.volume = isMuted ? 0 : 1;
-
-        audio.addEventListener('canplay', () => {
-            setIsLoading(false);
-            audio.play().catch(err => {
-                console.error('Play failed:', err);
-                setIsLoading(false);
-            });
-        });
-
-        audio.addEventListener('playing', () => {
-            setIsPlaying(true);
-            setIsLoading(false);
-        });
-
-        audio.addEventListener('pause', () => {
-            setIsPlaying(false);
-        });
-
-        audio.addEventListener('error', () => {
-            setIsLoading(false);
-        });
-
-        audio.src = STATION.url;
-        audio.load();
-        audioRef.current = audio;
-    };
-
-    const toggleMute = () => {
-        if (audioRef.current) {
-            audioRef.current.volume = isMuted ? 1 : 0;
-        }
-        setIsMuted(!isMuted);
-    };
+    const { isPlaying, isLoading, isMuted, stationName, togglePlay, toggleMute } = useRadio();
 
     return (
         <AppWrapper>
@@ -93,9 +23,9 @@ export default function RadioPage() {
                         </div>
 
                         {/* Station Info */}
-                        <h2 className="text-xl font-bold mb-1">{STATION.name}</h2>
-                        <p className="text-lg font-arabic mb-2">{STATION.reciter}</p>
-                        <p className="text-sm opacity-70 mb-6">{STATION.description}</p>
+                        <h2 className="text-xl font-bold mb-1">{stationName}</h2>
+                        <p className="text-lg font-arabic mb-2">ماهر المعيقلي</p>
+                        <p className="text-sm opacity-70 mb-6">Récitation complète du Saint Coran</p>
 
                         {/* Play/Pause Button */}
                         <button
@@ -130,10 +60,15 @@ export default function RadioPage() {
                     </div>
 
                     {/* Info */}
-                    <div className="mt-6 text-center">
+                    <div className="mt-6 text-center space-y-2">
                         <p className="text-xs text-muted-foreground">
                             📻 Diffusion continue 24h/24
                         </p>
+                        {isPlaying && (
+                            <p className="text-xs text-primary font-medium">
+                                ✓ La radio continue en arrière-plan
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

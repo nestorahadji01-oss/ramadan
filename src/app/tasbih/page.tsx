@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AppWrapper from '@/components/AppWrapper';
 import { CompactHeader } from '@/components/layout/Header';
-import { RotateCcw, Target, History, Volume2, VolumeX, Check } from 'lucide-react';
+import { RotateCcw, Target, History, Volume2, VolumeX, Check, X, Sparkles } from 'lucide-react';
 import { cn, storage, STORAGE_KEYS } from '@/lib/utils';
 
 interface TasbihSession {
@@ -24,6 +24,15 @@ const presetDhikr = [
 
 const targetOptions = [33, 99, 100, 500, 1000];
 
+// Celebration quotes
+const celebrationQuotes = [
+    { arabic: 'تَقَبَّلَ اللّٰهُ مِنَّا وَمِنكُم', french: 'Qu\'Allah accepte de nous et de vous' },
+    { arabic: 'جَزَاكَ اللّٰهُ خَيْرًا', french: 'Qu\'Allah te récompense par un bien' },
+    { arabic: 'بَارَكَ اللّٰهُ فِيكَ', french: 'Qu\'Allah te bénisse' },
+    { arabic: 'أَحْسَنْتَ', french: 'Tu as bien fait!' },
+    { arabic: 'مَا شَاءَ اللّٰهُ', french: 'Ce qu\'Allah a voulu' },
+];
+
 export default function TasbihPage() {
     const [count, setCount] = useState(0);
     const [target, setTarget] = useState(33);
@@ -33,7 +42,11 @@ export default function TasbihPage() {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [history, setHistory] = useState<TasbihSession[]>([]);
     const [showHistory, setShowHistory] = useState(false);
-    const [isComplete, setIsComplete] = useState(false);
+    const [showCelebration, setShowCelebration] = useState(false);
+    const [celebrationQuote, setCelebrationQuote] = useState(celebrationQuotes[0]);
+
+    // Audio context for click sound
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     // Load history on mount
     useEffect(() => {
@@ -41,51 +54,134 @@ export default function TasbihPage() {
         setHistory(savedHistory);
     }, []);
 
-    // Check if target reached
-    useEffect(() => {
-        if (count >= target && count > 0) {
-            setIsComplete(true);
-            // Vibrate on completion
-            if ('vibrate' in navigator) {
-                navigator.vibrate([100, 50, 100, 50, 100]);
-            }
-        } else {
-            setIsComplete(false);
+    // Initialize audio context on first interaction
+    const initAudio = useCallback(() => {
+        if (!audioContextRef.current && typeof window !== 'undefined') {
+            audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
         }
-    }, [count, target]);
+    }, []);
+
+    // Play a soft click sound
+    const playClickSound = useCallback(() => {
+        if (!soundEnabled) return;
+
+        try {
+            initAudio();
+            const ctx = audioContextRef.current;
+            if (!ctx) return;
+
+            // Resume context if suspended
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+
+            // Create a short beep
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+
+            oscillator.frequency.value = 800; // Hz
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.1);
+        } catch (e) {
+            console.log('Audio error:', e);
+        }
+    }, [soundEnabled, initAudio]);
+
+    // Play celebration sound
+    const playCelebrationSound = useCallback(() => {
+        if (!soundEnabled) return;
+
+        try {
+            initAudio();
+            const ctx = audioContextRef.current;
+            if (!ctx) return;
+
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+
+            // Play ascending notes for celebration
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+
+            notes.forEach((freq, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+
+                const startTime = ctx.currentTime + i * 0.15;
+                gain.gain.setValueAtTime(0.15, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.3);
+            });
+        } catch (e) {
+            console.log('Audio error:', e);
+        }
+    }, [soundEnabled, initAudio]);
 
     const handleCount = useCallback(() => {
-        setCount(prev => prev + 1);
+        const newCount = count + 1;
+        setCount(newCount);
+
+        // Sound feedback
+        playClickSound();
 
         // Haptic feedback
         if ('vibrate' in navigator) {
-            navigator.vibrate(10);
+            navigator.vibrate(15);
         }
 
-        // Play click sound (would need audio file)
-        if (soundEnabled) {
-            // Audio feedback placeholder
+        // Check if target reached
+        if (newCount >= target) {
+            // Strong vibration for completion
+            if ('vibrate' in navigator) {
+                navigator.vibrate([100, 50, 100, 50, 200]);
+            }
+
+            // Show celebration
+            const randomQuote = celebrationQuotes[Math.floor(Math.random() * celebrationQuotes.length)];
+            setCelebrationQuote(randomQuote);
+            setShowCelebration(true);
+            playCelebrationSound();
         }
-    }, [soundEnabled]);
+    }, [count, target, playClickSound, playCelebrationSound]);
 
     const handleReset = () => {
         if (count > 0) {
-            // Save session to history
             const session: TasbihSession = {
                 dhikr: selectedDhikr.french,
                 count,
                 target,
                 timestamp: new Date().toISOString(),
             };
-            const newHistory = [session, ...history].slice(0, 50); // Keep last 50 sessions
+            const newHistory = [session, ...history].slice(0, 50);
             setHistory(newHistory);
             storage.set(STORAGE_KEYS.TASBIH_HISTORY, newHistory);
         }
         setCount(0);
-        setIsComplete(false);
+        setShowCelebration(false);
+    };
+
+    const closeCelebration = () => {
+        setShowCelebration(false);
     };
 
     const progress = Math.min((count / target) * 100, 100);
+    const isComplete = count >= target;
 
     return (
         <AppWrapper>
@@ -166,7 +262,7 @@ export default function TasbihPage() {
                         <button
                             onClick={handleCount}
                             className={cn(
-                                "tasbih-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+                                "tasbih-btn absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-150 active:scale-95",
                                 isComplete && "animate-pulse-gold border-gold-400"
                             )}
                         >
@@ -215,6 +311,52 @@ export default function TasbihPage() {
                         ))}
                     </div>
                 </div>
+
+                {/* Celebration Modal */}
+                {showCelebration && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-6" onClick={closeCelebration}>
+                        <div
+                            className="bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-900 rounded-3xl p-8 text-white text-center max-w-sm w-full shadow-2xl animate-bounce-in"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Sparkles Icon */}
+                            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Sparkles className="w-10 h-10 text-gold-300" />
+                            </div>
+
+                            {/* Celebration Message */}
+                            <h2 className="text-2xl font-bold mb-2">ما شاء الله!</h2>
+                            <p className="text-lg mb-4">Tu as atteint ton objectif!</p>
+
+                            {/* Quote */}
+                            <div className="bg-white/10 rounded-2xl p-4 mb-6">
+                                <p className="text-xl font-arabic mb-2" dir="rtl">{celebrationQuote.arabic}</p>
+                                <p className="text-sm opacity-80">{celebrationQuote.french}</p>
+                            </div>
+
+                            {/* Stats */}
+                            <p className="text-sm opacity-70 mb-4">
+                                {count} × {selectedDhikr.french}
+                            </p>
+
+                            {/* Actions */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={closeCelebration}
+                                    className="flex-1 py-3 bg-white/20 rounded-xl font-medium"
+                                >
+                                    Continuer
+                                </button>
+                                <button
+                                    onClick={() => { handleReset(); closeCelebration(); }}
+                                    className="flex-1 py-3 bg-white text-emerald-700 rounded-xl font-medium"
+                                >
+                                    Nouveau
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Dhikr Selector Modal */}
                 {showDhikrSelector && (

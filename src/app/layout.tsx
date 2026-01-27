@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ActivationProvider } from "@/contexts/ActivationContext";
+import { RadioProvider } from "@/contexts/RadioContext";
+import MiniRadioPlayer from "@/components/MiniRadioPlayer";
 
 export const metadata: Metadata = {
   title: "Ramadan Companion | رمضان مبارك",
@@ -42,7 +44,10 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ActivationProvider>
-          {children}
+          <RadioProvider>
+            {children}
+            <MiniRadioPlayer />
+          </RadioProvider>
         </ActivationProvider>
       </body>
     </html>
