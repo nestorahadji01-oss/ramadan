@@ -1,56 +1,77 @@
 'use client';
 
 import { useRadio } from '@/contexts/RadioContext';
-import { Radio, Pause, X } from 'lucide-react';
+import { Radio, Play, Pause, X } from 'lucide-react';
+import { useState } from 'react';
 
 /**
- * Mini radio player that appears at the bottom of the screen when radio is playing
- * Allows pause/stop without navigating to the radio page
+ * Vertical mini radio player on the right side of the screen
+ * Stays visible when paused so user can resume
  */
 export default function MiniRadioPlayer() {
     const { isPlaying, isLoading, stationName, togglePlay, stop } = useRadio();
+    const [isVisible, setIsVisible] = useState(true);
 
-    // Only show when playing or loading
-    if (!isPlaying && !isLoading) {
+    // Show if playing OR loading, or if visible and was previously playing
+    const shouldShow = (isPlaying || isLoading) || (!isPlaying && isVisible);
+
+    // Only render if there's been radio activity
+    if (!shouldShow && !isPlaying && !isLoading) {
+        return null;
+    }
+
+    // Close the mini player (and stop if playing)
+    const handleClose = () => {
+        stop();
+        setIsVisible(false);
+    };
+
+    // When radio starts, make sure player is visible
+    if ((isPlaying || isLoading) && !isVisible) {
+        setIsVisible(true);
+    }
+
+    // Don't render if completely hidden and not playing
+    if (!isVisible && !isPlaying && !isLoading) {
         return null;
     }
 
     return (
-        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-4 right-4 z-40">
-            <div className="bg-emerald-700 text-white rounded-2xl shadow-xl p-3 flex items-center gap-3">
-                {/* Radio Icon */}
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Radio className={`w-5 h-5 ${isPlaying ? 'animate-pulse' : ''}`} />
+        <div className="fixed right-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 flex flex-col items-center gap-2">
+            {/* Main pill-shaped player */}
+            <div className="bg-emerald-700 text-white rounded-full shadow-xl flex flex-col items-center py-3 px-2 gap-2">
+                {/* Radio Icon with status */}
+                <div className={`w-10 h-10 bg-white/20 rounded-full flex items-center justify-center ${isPlaying ? 'animate-pulse' : ''}`}>
+                    <Radio className="w-5 h-5" />
                 </div>
 
-                {/* Station Info */}
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{stationName}</p>
-                    <p className="text-xs opacity-70">
-                        {isLoading ? 'Connexion...' : 'En lecture'}
-                    </p>
-                </div>
+                {/* Play/Pause Button */}
+                <button
+                    onClick={togglePlay}
+                    disabled={isLoading}
+                    className="w-12 h-12 bg-white text-emerald-700 rounded-full flex items-center justify-center shadow-lg disabled:opacity-50"
+                >
+                    {isLoading ? (
+                        <div className="w-5 h-5 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
+                    ) : isPlaying ? (
+                        <Pause className="w-6 h-6" />
+                    ) : (
+                        <Play className="w-6 h-6 ml-0.5" />
+                    )}
+                </button>
 
-                {/* Controls */}
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={togglePlay}
-                        disabled={isLoading}
-                        className="w-10 h-10 bg-white text-emerald-700 rounded-full flex items-center justify-center disabled:opacity-50"
-                    >
-                        {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-emerald-700 border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <Pause className="w-5 h-5" />
-                        )}
-                    </button>
-                    <button
-                        onClick={stop}
-                        className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
+                {/* Close Button */}
+                <button
+                    onClick={handleClose}
+                    className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center"
+                >
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+
+            {/* Status indicator */}
+            <div className="bg-black/70 text-white text-[10px] px-2 py-1 rounded-full">
+                {isLoading ? 'Connexion...' : isPlaying ? '🔊 En lecture' : '⏸️ Pause'}
             </div>
         </div>
     );
