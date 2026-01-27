@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { storage, STORAGE_KEYS } from '@/lib/utils';
-import { generateDeviceId, type UserProfile } from '@/lib/supabase';
+import { type UserProfile } from '@/lib/supabase';
+import { getDeviceFingerprint, checkDeviceActivation } from '@/lib/fingerprint';
 
 interface ActivationContextType {
     isActivated: boolean;
@@ -17,8 +18,7 @@ interface ActivationContextType {
 
 const ActivationContext = createContext<ActivationContextType | undefined>(undefined);
 
-// Storage keys for new data
-const DEVICE_ID_KEY = 'ramadan_device_id';
+// Storage keys
 const USER_PROFILE_KEY = 'ramadan_user_profile';
 
 export function ActivationProvider({ children }: { children: ReactNode }) {
@@ -28,30 +28,19 @@ export function ActivationProvider({ children }: { children: ReactNode }) {
     const [deviceId, setDeviceId] = useState<string | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-    // Check activation status on mount
-    useEffect(() => {
-        initializeDevice();
-        checkActivation();
-    }, []);
-
     // DEV MODE: Set to false for production
     const DEV_BYPASS = false;
 
+    // Check activation on mount
+    useEffect(() => {
+        initializeAndCheck();
+    }, []);
+
     /**
-     * Initialize or retrieve device ID
+     * Initialize device fingerprint and check activation status
+     * This uses browser fingerprinting which persists even without localStorage
      */
-    const initializeDevice = () => {
-        let storedDeviceId = storage.get<string | null>(DEVICE_ID_KEY, null);
-
-        if (!storedDeviceId) {
-            storedDeviceId = generateDeviceId();
-            storage.set(DEVICE_ID_KEY, storedDeviceId);
-        }
-
-        setDeviceId(storedDeviceId);
-    };
-
-    const checkActivation = () => {
+    const initializeAndCheck = async () => {
         // In dev mode, auto-activate
         if (DEV_BYPASS && process.env.NODE_ENV === 'development') {
             setIsActivated(true);
@@ -66,23 +55,58 @@ export function ActivationProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const activated = storage.get<boolean>(STORAGE_KEYS.ACTIVATED, false);
-        const phone = storage.get<string | null>(STORAGE_KEYS.ACTIVATION_PHONE, null);
-        const profile = storage.get<UserProfile | null>(USER_PROFILE_KEY, null);
+        try {
+            // Get stable device fingerprint (persists even without localStorage)
+            const fingerprint = await getDeviceFingerprint();
+            setDeviceId(fingerprint);
 
-        setIsActivated(activated);
-        setPhoneNumber(phone);
-        setUserProfile(profile);
+            // First check localStorage (fast path)
+            const localActivated = storage.get<boolean>(STORAGE_KEYS.ACTIVATED, false);
+            const localPhone = storage.get<string | null>(STORAGE_KEYS.ACTIVATION_PHONE, null);
+            const localProfile = storage.get<UserProfile | null>(USER_PROFILE_KEY, null);
+
+            if (localActivated && localPhone) {
+                // Already activated locally
+                setIsActivated(true);
+                setPhoneNumber(localPhone);
+                setUserProfile(localProfile);
+                setIsLoading(false);
+                return;
+            }
+
+            // Check server for device activation (handles cleared cache)
+            const serverCheck = await checkDeviceActivation(fingerprint);
+
+            if (serverCheck.activated && serverCheck.phone) {
+                // Device was previously activated! Restore session
+                setIsActivated(true);
+                setPhoneNumber(serverCheck.phone);
+                setUserProfile(serverCheck.profile || null);
+
+                // Restore to localStorage for faster future checks
+                storage.set(STORAGE_KEYS.ACTIVATED, true);
+                storage.set(STORAGE_KEYS.ACTIVATION_PHONE, serverCheck.phone);
+                if (serverCheck.profile) {
+                    storage.set(USER_PROFILE_KEY, serverCheck.profile);
+                }
+            }
+        } catch (error) {
+            console.error('Activation check error:', error);
+        }
+
         setIsLoading(false);
+    };
+
+    const checkActivation = () => {
+        initializeAndCheck();
     };
 
     const activate = async (phone: string): Promise<{ success: boolean; error?: string }> => {
         try {
-            // Ensure we have a device ID
+            // Ensure we have a device fingerprint
             let currentDeviceId = deviceId;
             if (!currentDeviceId) {
-                currentDeviceId = generateDeviceId();
-                storage.set(DEVICE_ID_KEY, currentDeviceId);
+                currentDeviceId = await getDeviceFingerprint();
                 setDeviceId(currentDeviceId);
             }
 
@@ -121,7 +145,7 @@ export function ActivationProvider({ children }: { children: ReactNode }) {
     };
 
     const logout = () => {
-        // Clear activation but keep device_id
+        // Clear activation but keep device_id (it's a fingerprint, not stored)
         storage.remove(STORAGE_KEYS.ACTIVATED);
         storage.remove(STORAGE_KEYS.ACTIVATION_PHONE);
         storage.remove(USER_PROFILE_KEY);
