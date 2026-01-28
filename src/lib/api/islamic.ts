@@ -501,6 +501,7 @@ const tafsirCache: Record<string, TafsirAyah[]> = {};
 
 /**
  * Get tafsir for an entire surah
+ * Uses local proxy to avoid CORS issues
  */
 export async function getSurahTafsir(surahNumber: number): Promise<TafsirAyah[] | null> {
     const cacheKey = `surah_${surahNumber}`;
@@ -510,16 +511,18 @@ export async function getSurahTafsir(surahNumber: number): Promise<TafsirAyah[] 
     }
 
     try {
-        const response = await fetch(
-            `${QURANENC_BASE_URL}/translation/sura/${FRENCH_TAFSIR_KEY}/${surahNumber}`,
-            {
-                headers: { 'Accept': 'application/json' },
-                next: { revalidate: 86400 } // Cache for 24 hours
-            }
-        );
+        // Use local proxy to avoid CORS issues
+        const isClient = typeof window !== 'undefined';
+        const url = isClient
+            ? `/api/tafsir?surah=${surahNumber}`
+            : `${QURANENC_BASE_URL}/translation/sura/${FRENCH_TAFSIR_KEY}/${surahNumber}`;
+
+        const response = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+        });
 
         if (!response.ok) {
-            console.error('QuranEnc API error:', response.status);
+            console.error('Tafsir API error:', response.status);
             return null;
         }
 

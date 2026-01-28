@@ -5,7 +5,7 @@ import AppWrapper from '@/components/AppWrapper';
 import { CompactHeader } from '@/components/layout/Header';
 import { ArrowLeft, Play, Pause, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
-import { getSurah, getChapterAudio, type SurahDetail } from '@/lib/api/islamic';
+import { getSurah, getSurahWithTranslation, getChapterAudio, getSurahTafsir, type SurahDetail, type TafsirAyah } from '@/lib/api/islamic';
 import { cn } from '@/lib/utils';
 
 interface SurahPageProps {
@@ -17,14 +17,16 @@ export default function SurahPage({ params }: SurahPageProps) {
     const surahNumber = parseInt(resolvedParams.surah);
 
     const [surah, setSurah] = useState<SurahDetail | null>(null);
+    const [translation, setTranslation] = useState<SurahDetail | null>(null);
+    const [tafsirData, setTafsirData] = useState<TafsirAyah[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
-    const [showTafsir, setShowTafsir] = useState<number | null>(null);
+    const [expandedTafsir, setExpandedTafsir] = useState<number | null>(null);
     const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
     useEffect(() => {
-        loadSurah();
+        loadData();
         loadAudio();
 
         return () => {
@@ -34,13 +36,21 @@ export default function SurahPage({ params }: SurahPageProps) {
         };
     }, [surahNumber]);
 
-    const loadSurah = async () => {
+    const loadData = async () => {
         setIsLoading(true);
         try {
-            const data = await getSurah(surahNumber);
-            if (data) {
-                setSurah(data);
-            }
+            // Load Arabic text, French translation, and Tafsir in parallel
+            const [arabicData, frenchData, tafsir] = await Promise.all([
+                getSurah(surahNumber),
+                getSurahWithTranslation(surahNumber, 'fr.hamidullah'),
+                getSurahTafsir(surahNumber)
+            ]);
+
+            console.log('Loaded data - Arabic:', !!arabicData, 'Translation:', !!frenchData, 'Tafsir:', tafsir?.length || 0);
+
+            if (arabicData) setSurah(arabicData);
+            if (frenchData) setTranslation(frenchData);
+            if (tafsir) setTafsirData(tafsir);
         } catch (error) {
             console.error('Failed to load surah:', error);
         } finally {
@@ -50,7 +60,6 @@ export default function SurahPage({ params }: SurahPageProps) {
 
     const loadAudio = async () => {
         try {
-            // Using Abdul Basit (reciter id 1) as default
             const audioData = await getChapterAudio(1, surahNumber);
             if (audioData) {
                 setAudioUrl(audioData.audio_url);
@@ -77,6 +86,34 @@ export default function SurahPage({ params }: SurahPageProps) {
             setAudio(newAudio);
             setIsPlaying(true);
         }
+    };
+
+    const getTranslationText = (ayahNumber: number): string | null => {
+        if (!translation?.ayahs) return null;
+        const ayah = translation.ayahs.find(a => a.numberInSurah === ayahNumber);
+        return ayah?.text || null;
+    };
+
+    const getTafsirText = (ayahNumber: number): string | null => {
+        if (!tafsirData.length) {
+            console.log('No tafsir data loaded');
+            return null;
+        }
+        // Debug: log the structure to understand the data
+        if (ayahNumber === 1) {
+            console.log('Tafsir data sample:', tafsirData[0]);
+        }
+        // Try matching by aya field
+        let tafsir = tafsirData.find(t => t.aya === ayahNumber);
+        // If not found, try by index (0-based)
+        if (!tafsir && tafsirData[ayahNumber - 1]) {
+            tafsir = tafsirData[ayahNumber - 1];
+        }
+        return tafsir?.translation || null;
+    };
+
+    const toggleTafsir = (ayahNumber: number) => {
+        setExpandedTafsir(expandedTafsir === ayahNumber ? null : ayahNumber);
     };
 
     return (
@@ -152,34 +189,81 @@ export default function SurahPage({ params }: SurahPageProps) {
 
                         {/* Ayahs */}
                         <div className="space-y-3">
-                            {surah.ayahs.map((ayah) => (
-                                <div key={ayah.number} className="card">
-                                    {/* Ayah Number Badge */}
-                                    <div className="flex items-start gap-3 mb-3">
-                                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                                            <span className="text-sm font-bold text-primary">{ayah.numberInSurah}</span>
-                                        </div>
-                                        <div className="flex-1 text-right">
-                                            <p className="text-2xl font-arabic leading-loose text-foreground" dir="rtl">
-                                                {ayah.text}
-                                            </p>
-                                        </div>
-                                    </div>
+                            {surah.ayahs.map((ayah) => {
+                                const translationText = getTranslationText(ayah.numberInSurah);
+                                const tafsirText = getTafsirText(ayah.numberInSurah);
+                                const isTafsirExpanded = expandedTafsir === ayah.numberInSurah;
 
-                                    {/* Metadata */}
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-card-border pt-3 mt-3">
-                                        <span>Juz {ayah.juz}</span>
-                                        <span>Page {ayah.page}</span>
-                                        <Link
-                                            href={`/tafsir?surah=${surahNumber}&ayah=${ayah.numberInSurah}`}
-                                            className="ml-auto flex items-center gap-1 text-primary hover:underline"
-                                        >
-                                            <BookOpen className="w-4 h-4" />
-                                            Voir le Tafsir
-                                        </Link>
+                                return (
+                                    <div key={ayah.number} className="card">
+                                        {/* Ayah Number Badge */}
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <span className="text-sm font-bold text-primary">{ayah.numberInSurah}</span>
+                                            </div>
+                                            <div className="flex-1 text-right">
+                                                <p className="text-2xl font-arabic leading-loose text-foreground" dir="rtl">
+                                                    {ayah.text}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Translation Section */}
+                                        {translationText && (
+                                            <div className="bg-muted/50 rounded-xl p-4 mb-3">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                                                        📖 Traduction
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-foreground leading-relaxed">
+                                                    {translationText}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Tafsir Toggle Button */}
+                                        {tafsirText && (
+                                            <>
+                                                <button
+                                                    onClick={() => toggleTafsir(ayah.numberInSurah)}
+                                                    className={cn(
+                                                        "w-full flex items-center justify-between p-3 rounded-xl transition-colors",
+                                                        isTafsirExpanded
+                                                            ? "bg-gold-500/10 text-gold-600"
+                                                            : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    <span className="flex items-center gap-2 text-sm font-medium">
+                                                        <BookOpen className="w-4 h-4" />
+                                                        Interprétation (Tafsir)
+                                                    </span>
+                                                    {isTafsirExpanded ? (
+                                                        <ChevronUp className="w-4 h-4" />
+                                                    ) : (
+                                                        <ChevronDown className="w-4 h-4" />
+                                                    )}
+                                                </button>
+
+                                                {/* Expanded Tafsir Content */}
+                                                {isTafsirExpanded && (
+                                                    <div className="mt-3 p-4 bg-gold-500/5 border border-gold-500/20 rounded-xl animate-fade-in">
+                                                        <p className="text-sm text-foreground leading-relaxed">
+                                                            {tafsirText}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {/* Metadata */}
+                                        <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-card-border pt-3 mt-3">
+                                            <span>Juz {ayah.juz}</span>
+                                            <span>Page {ayah.page}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Navigation */}

@@ -5,15 +5,15 @@ import { RadioProvider } from "@/contexts/RadioContext";
 import MiniRadioPlayer from "@/components/MiniRadioPlayer";
 
 export const metadata: Metadata = {
-  title: "Ramadan Companion | رمضان مبارك",
+  title: "Niyyah | نية",
   description: "Votre compagnon spirituel pour le mois de Ramadan. Heures de prière, Coran, Tasbih, Azkar, Zakat et plus encore.",
-  keywords: ["ramadan", "islam", "prière", "coran", "tasbih", "zakat", "azkar", "muslim"],
-  authors: [{ name: "Ramadan Companion" }],
+  keywords: ["ramadan", "islam", "prière", "coran", "tasbih", "zakat", "azkar", "muslim", "niyyah"],
+  authors: [{ name: "Niyyah" }],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Ramadan",
+    title: "Niyyah",
   },
 };
 

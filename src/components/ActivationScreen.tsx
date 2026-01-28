@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useActivation } from '@/contexts/ActivationContext';
-import { Moon, Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Moon, Phone, ArrowRight, Loader2, AlertCircle, CheckCircle2, ShoppingCart } from 'lucide-react';
 
 export default function ActivationScreen() {
     const { activate } = useActivation();
@@ -55,10 +55,10 @@ export default function ActivationScreen() {
                     </div>
 
                     <h1 className="text-3xl font-bold text-white mb-2">
-                        Ramadan Companion
+                        Niyyah
                     </h1>
                     <p className="text-emerald-300/80 text-lg font-arabic" dir="rtl">
-                        رمضان مبارك
+                        نية
                     </p>
                 </div>
 
@@ -129,14 +129,21 @@ export default function ActivationScreen() {
                     </form>
                 </div>
 
-                {/* Help Text */}
-                <p className="text-center text-emerald-400/50 text-sm mt-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                    Vous n&apos;avez pas encore acheté l&apos;application?
-                    <br />
-                    <a href="#" className="text-gold-400 hover:text-gold-300 underline">
-                        Acheter maintenant
+                {/* CTA for Purchase */}
+                <div className="mt-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+                    <a
+                        href="https://toutenpdf.com/prd_mz134b"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-4 px-6 bg-white text-emerald-800 font-semibold rounded-xl flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all duration-200"
+                    >
+                        <ShoppingCart className="w-5 h-5" />
+                        <span>Pas encore de code? Acheter maintenant</span>
                     </a>
-                </p>
+                    <p className="text-center text-emerald-400/50 text-xs mt-3">
+                        Accès à vie • Toutes les fonctionnalités • Support 24/7
+                    </p>
+                </div>
             </div>
         </div>
     );

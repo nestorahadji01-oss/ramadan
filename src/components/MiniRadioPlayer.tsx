@@ -1,15 +1,19 @@
 'use client';
 
 import { useRadio } from '@/contexts/RadioContext';
+import { useActivation } from '@/contexts/ActivationContext';
 import { Radio, Play, Pause, X } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 /**
  * Draggable vertical mini radio player
  * Can be moved anywhere on screen, starts in the middle-right
+ * Hidden when user is not activated
  */
 export default function MiniRadioPlayer() {
     const { isPlaying, isLoading, togglePlay, stop } = useRadio();
+    const { isActivated, isLoading: activationLoading } = useActivation();
+
     const [isVisible, setIsVisible] = useState(true);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
@@ -135,6 +139,11 @@ export default function MiniRadioPlayer() {
 
     // Hide if not initialized or not visible
     if (!initialized || (!shouldShow && !isPlaying && !isLoading)) {
+        return null;
+    }
+
+    // Don't show on activation screen
+    if (!isActivated && !activationLoading) {
         return null;
     }
 
