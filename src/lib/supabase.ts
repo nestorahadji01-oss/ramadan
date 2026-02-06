@@ -111,60 +111,25 @@ export async function activateCode(phone: string, deviceId: string): Promise<{
   profile?: UserProfile;
 }> {
   try {
-    const normalizedPhone = normalizePhoneNumber(phone);
+    // Call the server-side API that uses service_role key
+    const response = await fetch('/api/activate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phone, deviceId }),
+    });
 
-    // First get the current data
-    const { data: currentData, error: fetchError } = await supabase
-      .from('activation_codes')
-      .select('*')
-      .eq('phone', normalizedPhone)
-      .single();
+    const result = await response.json();
 
-    if (fetchError || !currentData) {
-      return { success: false, error: 'Code introuvable.' };
+    if (!result.success) {
+      return { success: false, error: result.error || 'Erreur d\'activation.' };
     }
 
-    // Check if already activated on a different device
-    if (currentData.used && currentData.device_id && currentData.device_id !== deviceId) {
-      return {
-        success: false,
-        error: 'Ce numéro est déjà activé sur un autre appareil.'
-      };
-    }
-
-    // If already activated on same device, just return success with profile
-    if (currentData.used && currentData.device_id === deviceId) {
-      const profile: UserProfile = {
-        phone: currentData.phone,
-        name: currentData.customer_name,
-        firstName: currentData.customer_name?.split(' ')[0] || null,
-        email: currentData.customer_email,
-      };
-      return { success: true, profile };
-    }
-
-    // Activate and register device
-    const { error } = await supabase
-      .from('activation_codes')
-      .update({
-        used: true,
-        used_at: new Date().toISOString(),
-        device_id: deviceId,
-      })
-      .eq('phone', normalizedPhone);
-
-    if (error) {
-      return { success: false, error: 'Erreur lors de l\'activation.' };
-    }
-
-    const profile: UserProfile = {
-      phone: currentData.phone,
-      name: currentData.customer_name,
-      firstName: currentData.customer_name?.split(' ')[0] || null,
-      email: currentData.customer_email,
+    return {
+      success: true,
+      profile: result.data?.profile
     };
-
-    return { success: true, profile };
   } catch (err) {
     console.error('Activation error:', err);
     return { success: false, error: 'Erreur d\'activation. Veuillez réessayer.' };
